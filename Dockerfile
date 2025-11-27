@@ -60,15 +60,14 @@ ENV HOST=0.0.0.0
 ENV PYTHONUNBUFFERED=1
 ENV UV_SYSTEM_PYTHON=1
 ENV STAGE=MAINNET
-ENV PORT=8000
 ENV LOG_LEVEL=INFO
 
 # Health check - uses dedicated health endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
+    CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
 # Expose port (uses PORT environment variable with default)
-EXPOSE ${PORT:-8000}
+EXPOSE ${PORT:-8080}
 
 # Run the application
 CMD ["uv", "run", "python", "server.py"] 
