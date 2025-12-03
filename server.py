@@ -48,6 +48,35 @@ from traia_iatp.d402.mcp_middleware import require_payment_for_tool, get_active_
 from traia_iatp.d402.payment_introspection import extract_payment_configs_from_mcp
 from traia_iatp.d402.types import TokenAmount, TokenAsset, EIP712Domain
 
+
+# =============================================================================
+# CLOUD RUN COMPATIBILITY: Disable MCP Transport Security
+# =============================================================================
+# The MCP SDK's transport_security module validates Host headers strictly.
+# On Cloud Run, the Host header is the Cloud Run domain (*.run.app), which
+# triggers HTTP 421 "Misdirected Request" errors.
+#
+# This patch disables Host header validation when MCP_TRANSPORT_SECURITY_ENABLED=false
+# (set automatically by the deployment system for Cloud Run compatibility).
+# =============================================================================
+_transport_security_disabled = False
+if os.getenv("MCP_TRANSPORT_SECURITY_ENABLED", "true").lower() == "false":
+    try:
+        from mcp.server import transport_security
+        # Monkey-patch to always pass host validation
+        original_check_host = getattr(transport_security, 'check_request_host', None)
+        if original_check_host:
+            transport_security.check_request_host = lambda *args, **kwargs: None
+        # Also try validate_host if it exists
+        original_validate = getattr(transport_security, 'validate_host', None)
+        if original_validate:
+            transport_security.validate_host = lambda *args, **kwargs: True
+        _transport_security_disabled = True
+        logger.info("⚠️  MCP transport security DISABLED for Cloud Run compatibility")
+    except (ImportError, AttributeError) as e:
+        logger.warning(f"Could not disable MCP transport security: {e}")
+        logger.warning("This may cause HTTP 421 errors on Cloud Run")
+
 # Configuration
 STAGE = os.getenv("STAGE", "MAINNET").upper()
 PORT = int(os.getenv("PORT", "8000"))
