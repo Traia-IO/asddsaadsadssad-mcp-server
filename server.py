@@ -38,8 +38,8 @@ logging.basicConfig(
 logger = logging.getLogger('asddsaadsadssad_mcp')
 
 # FastMCP from official SDK
-from mcp.server.fastmcp import FastMCP
-from mcp.server.transport_security import TransportSecuritySettings, Context
+from mcp.server.fastmcp import FastMCP, Context
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
