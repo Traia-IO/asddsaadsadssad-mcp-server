@@ -38,7 +38,8 @@ logging.basicConfig(
 logger = logging.getLogger('asddsaadsadssad_mcp')
 
 # FastMCP from official SDK
-from mcp.server.fastmcp import FastMCP, Context
+from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings, Context
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -47,35 +48,6 @@ from traia_iatp.d402.starlette_middleware import D402PaymentMiddleware
 from traia_iatp.d402.mcp_middleware import require_payment_for_tool, get_active_api_key
 from traia_iatp.d402.payment_introspection import extract_payment_configs_from_mcp
 from traia_iatp.d402.types import TokenAmount, TokenAsset, EIP712Domain
-
-
-# =============================================================================
-# CLOUD RUN COMPATIBILITY: Disable MCP Transport Security
-# =============================================================================
-# The MCP SDK's transport_security module validates Host headers strictly.
-# On Cloud Run, the Host header is the Cloud Run domain (*.run.app), which
-# triggers HTTP 421 "Misdirected Request" errors.
-#
-# This patch disables Host header validation when MCP_TRANSPORT_SECURITY_ENABLED=false
-# (set automatically by the deployment system for Cloud Run compatibility).
-# =============================================================================
-_transport_security_disabled = False
-if os.getenv("MCP_TRANSPORT_SECURITY_ENABLED", "true").lower() == "false":
-    try:
-        from mcp.server import transport_security
-        # Monkey-patch to always pass host validation
-        original_check_host = getattr(transport_security, 'check_request_host', None)
-        if original_check_host:
-            transport_security.check_request_host = lambda *args, **kwargs: None
-        # Also try validate_host if it exists
-        original_validate = getattr(transport_security, 'validate_host', None)
-        if original_validate:
-            transport_security.validate_host = lambda *args, **kwargs: True
-        _transport_security_disabled = True
-        logger.info("⚠️  MCP transport security DISABLED for Cloud Run compatibility")
-    except (ImportError, AttributeError) as e:
-        logger.warning(f"Could not disable MCP transport security: {e}")
-        logger.warning("This may cause HTTP 421 errors on Cloud Run")
 
 # Configuration
 STAGE = os.getenv("STAGE", "MAINNET").upper()
@@ -92,8 +64,24 @@ logger.info(f"API: https://petstore.swagger.io/")
 logger.info(f"Payment: {SERVER_ADDRESS}")
 logger.info("="*80)
 
+
+# =============================================================================
+# CLOUD RUN COMPATIBILITY: Configure MCP Transport Security
+# =============================================================================
+# The MCP SDK's transport_security module validates Host headers by default.
+# On Cloud Run, the Host header is the Cloud Run domain (*.run.app), which
+# triggers HTTP 421 "Misdirected Request" errors.
+#
+# When MCP_TRANSPORT_SECURITY_ENABLED=false (set by deployment), disable DNS
+# rebinding protection to allow any host.
+# =============================================================================
+_transport_security_settings = None
+if os.getenv("MCP_TRANSPORT_SECURITY_ENABLED", "true").lower() == "false":
+    _transport_security_settings = TransportSecuritySettings(enable_dns_rebinding_protection=False)
+    logger.info("⚠️  MCP transport security DISABLED for Cloud Run compatibility")
+
 # Create FastMCP server
-mcp = FastMCP("asddsaadsadssad MCP Server")
+mcp = FastMCP("asddsaadsadssad MCP Server", transport_security=_transport_security_settings)
 
 logger.info(f"✅ FastMCP server created")
 
