@@ -39,7 +39,6 @@ logger = logging.getLogger('asddsaadsadssad_mcp')
 
 # FastMCP from official SDK
 from mcp.server.fastmcp import FastMCP, Context
-from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -64,24 +63,8 @@ logger.info(f"API: https://petstore.swagger.io/")
 logger.info(f"Payment: {SERVER_ADDRESS}")
 logger.info("="*80)
 
-
-# =============================================================================
-# CLOUD RUN COMPATIBILITY: Configure MCP Transport Security
-# =============================================================================
-# The MCP SDK's transport_security module validates Host headers by default.
-# On Cloud Run, the Host header is the Cloud Run domain (*.run.app), which
-# triggers HTTP 421 "Misdirected Request" errors.
-#
-# When MCP_TRANSPORT_SECURITY_ENABLED=false (set by deployment), disable DNS
-# rebinding protection to allow any host.
-# =============================================================================
-_transport_security_settings = None
-if os.getenv("MCP_TRANSPORT_SECURITY_ENABLED", "true").lower() == "false":
-    _transport_security_settings = TransportSecuritySettings(enable_dns_rebinding_protection=False)
-    logger.info("⚠️  MCP transport security DISABLED for Cloud Run compatibility")
-
 # Create FastMCP server
-mcp = FastMCP("asddsaadsadssad MCP Server", transport_security=_transport_security_settings)
+mcp = FastMCP("asddsaadsadssad MCP Server", host="0.0.0.0")
 
 logger.info(f"✅ FastMCP server created")
 
